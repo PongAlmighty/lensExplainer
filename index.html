@@ -191,6 +191,11 @@ footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
     <section class="card">
       <h2>Lens &amp; scene</h2>
       <div class="ctl">
+        <div class="row"><span class="name">Scene</span></div>
+        <div class="seg" id="sceneSeg"><button data-sc="night">Night</button><button data-sc="indoor">Indoors</button><button data-sc="golden">Golden hour</button><button data-sc="daylight">Daylight</button></div>
+        <div class="hint">What you're shooting. It's independent of scene brightness, so you can shoot a night scene at EV 15 and see it blown out, or a sunny scene at EV 3 and see it crushed.</div>
+      </div>
+      <div class="ctl">
         <div class="row"><span class="name">Focal length</span><span class="val" id="focalVal"></span></div>
         <input type="range" id="focalSlider" min="18" max="135" step="1">
         <div class="pills" id="lensChips"></div>
@@ -208,10 +213,9 @@ footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
       </div>
       <div class="ctl">
         <div class="row"><span class="name">Scene brightness</span><span class="val" id="evVal"></span></div>
-        <div class="alt" id="sceneName" style="text-align:right"></div>
         <input type="range" id="evSlider" min="1" max="16" step="0.5">
         <div class="pills" id="evChips"></div>
-        <div class="hint">Measured in EV (at ISO 100). Every +1 EV is twice the light. The scene changes with it: night, indoors, golden hour, daylight.</div>
+        <div class="hint">Measured in EV (at ISO 100). Every +1 EV is twice the light. It sets how much light there is, not what the scene looks like.</div>
       </div>
     </section>
   </aside>
@@ -226,7 +230,7 @@ const $=id=>document.getElementById(id);
 const F_STOPS=[1.0,1.1,1.2,1.4,1.6,1.8,2,2.2,2.5,2.8,3.2,3.5,4,4.5,5,5.6,6.3,7.1,8,9,10,11,13,14,16,18,20,22];
 const ISOS=[100,125,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000,10000,12800,16000,20000,25600];
 const SPEEDS=[24,25,30,48,50,60,96,100,120,125,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000];
-const DEFAULTS={fps:24,mode:'angle',angle:180,den:48,fi:9,ii:6,nd:4,focal:35,focus:3,ev:10.5,sensor:24.9,dual:true};
+const DEFAULTS={scene:'golden',fps:24,mode:'angle',angle:180,den:48,fi:9,ii:6,nd:4,focal:35,focus:3,ev:10.5,sensor:24.9,dual:true};
 const S=Object.assign({},DEFAULTS);
 let D_BG=80,D_CAR=6;const D_MID=3,D_FG=0.9,CAR_SPEED=1000;
 
@@ -276,7 +280,6 @@ const SCENES={
   golden:  {name:'Outdoors · golden hour',obj:'car',  bgName:'skyline',   dBg:80,dObj:6},
   daylight:{name:'Outdoors · daylight',   obj:'car',  bgName:'skyline',   dBg:80,dObj:6},
 };
-const sceneFor=ev=>ev<4.5?'night':ev<8.5?'indoor':ev<11.5?'golden':'daylight';
 let SC='golden';
 
 const OUT={
@@ -612,19 +615,20 @@ $('ndSeg').onclick=e=>{const v=e.target.dataset.nd;if(v==null)return;S.nd=+v;upd
 $('focalSlider').oninput=e=>{S.focal=+e.target.value;update()};
 $('focusSlider').oninput=e=>{S.focus=posToDist(+e.target.value);update()};
 $('sensor').onchange=e=>{S.sensor=+e.target.value;update()};
+$('sceneSeg').onclick=e=>{const v=e.target.dataset.sc;if(!v)return;S.scene=v;update()};
 $('evSlider').oninput=e=>{S.ev=+e.target.value;update()};
 
-const EVCHIPS=[['Night street',2.5],['Indoors',6],['Golden hour',10.5],['Overcast day',12],['Bright sun',15]];
+const EVCHIPS=[['Very dim',2.5],['Dim',6],['Soft light',10.5],['Bright overcast',12],['Full sun',15]];
 EVCHIPS.forEach(([n,v])=>{const b=document.createElement('button');b.className='pill';b.textContent=n+' · '+v;b.onclick=()=>{S.ev=v;update()};$('evChips').appendChild(b)});
 
 const PRESETS=[
   ['Cinematic 24p 180°',{}],
-  ['Dreamy portrait',{fi:3,focal:85,nd:6,ev:11}],
-  ['Deep-focus landscape',{fi:24,focal:18,focus:8,nd:0,ev:11.5}],
-  ['Freeze the action',{mode:'speed',den:2000,fi:6,ii:9,nd:2,ev:12,focal:50}],
-  ['Silky motion blur 360°',{angle:360,fi:15,ev:11.5}],
-  ['Night street, dual-native',{fi:6,ii:15,nd:0,ev:2.5}],
-  ['BMD Micro Studio 4K G2',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,focal:25,sensor:18.96,ev:6.5,dual:true}],
+  ['Dreamy portrait',{scene:'golden',fi:3,focal:85,nd:6,ev:11}],
+  ['Deep-focus landscape',{scene:'daylight',fi:24,focal:18,focus:8,nd:0,ev:11.5}],
+  ['Freeze the action',{scene:'daylight',mode:'speed',den:2000,fi:6,ii:9,nd:2,ev:12,focal:50}],
+  ['Silky motion blur 360°',{scene:'daylight',angle:360,fi:15,ev:11.5}],
+  ['Night street, dual-native',{scene:'night',fi:6,ii:15,nd:0,ev:2.5}],
+  ['BMD Micro Studio 4K G2',{scene:'indoor',fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,focal:25,sensor:18.96,ev:6.5,dual:true}],
 ];
 PRESETS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
   b.onclick=()=>{Object.assign(S,DEFAULTS,p);if(p.mode==='speed')S.mode='speed';syncAll();update()};$('presets').appendChild(b)});
@@ -647,7 +651,7 @@ new ResizeObserver(()=>{stage.style.transform=`scale(${frame.clientWidth/W})`}).
 function update(){
   const N=Nval(),iso=ISOS[S.ii],t=tSec(),ang=Math.min(360,t*S.fps*360),Nn=F_STOPS[S.fi];
   const E=log2(t/(N*N)*(iso/100))+S.ev-S.nd;
-  SC=sceneFor(S.ev);const sc=SCENES[SC];D_BG=sc.dBg;D_CAR=sc.dObj;
+  SC=S.scene;const sc=SCENES[SC];D_BG=sc.dBg;D_CAR=sc.dObj;
   const z=(S.focal/S.sensor)/(35/24.9);
 
   // blur per layer
@@ -692,7 +696,7 @@ function update(){
   $('isoVal').textContent=iso;$('ndVal').textContent=S.nd?`−${S.nd} stops`:'off';
   document.querySelectorAll('#ndSeg button').forEach(x=>x.classList.toggle('on',+x.dataset.nd===S.nd));
   $('focalVal').textContent=S.focal+' mm';$('focusVal').textContent=fmtDist(S.focus);
-  $('evVal').textContent='EV '+S.ev;$('sceneName').textContent=sc.name;
+  $('evVal').textContent='EV '+S.ev;document.querySelectorAll('#sceneSeg button').forEach(x=>x.classList.toggle('on',x.dataset.sc===SC));
   $('focusHint').textContent=`The person is 3 m away, the ${sc.obj} ${D_CAR} m, the plant leaves 0.9 m and the ${sc.bgName} ${D_BG} m. Rack focus and see what goes soft.`;
 
   const col=Math.abs(E)<.5?'var(--good)':Math.abs(E)<1.5?'var(--warn)':'var(--bad)';
