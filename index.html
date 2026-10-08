@@ -77,6 +77,8 @@ svg{display:block;width:100%;height:auto}
 .alt{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
 input[type=range]{width:100%;margin:8px 0 2px;accent-color:var(--accent)}
 .hint{color:var(--muted);font-size:12px}
+.dr{display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:8px;background:#0b0d10}
+.dr .sh{background:#3a4350}.dr .hl{background:#e9ecef}
 .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:8px 0}
 .seg button{flex:1;background:transparent;color:var(--muted);border:0;padding:6px 4px;cursor:pointer;font:inherit;font-weight:600}
 .seg button.on{background:var(--accent);color:#1a1200}
@@ -174,7 +176,9 @@ footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
         <div class="row"><span class="name">ISO</span><span class="val" id="isoVal"></span></div>
         <input type="range" id="isoSlider" min="0" max="24" step="1">
         <label class="check"><input type="checkbox" id="dual" checked> Dual native ISO (e.g. Pocket 4K: 400 &amp; 3200)</label>
-        <div class="hint">Amplifies the sensor signal. Brighter picture, but noise gets amplified too. Dual-native sensors drop back to low noise at their second base ISO.</div>
+        <div class="dr"><div id="drSh" class="sh"></div><div id="drHl" class="hl"></div></div>
+        <div class="alt" id="drTxt" style="margin-top:4px"></div>
+        <div class="hint" style="margin-top:6px">Doesn't add light or noise by itself. It shifts where middle grey sits in the sensor's range: higher ISO = brighter picture and less highlight headroom. Noise comes from too little light on the sensor, which people often raise ISO to compensate for. Dual-native sensors have a second base ISO with lower read noise.</div>
       </div>
 
       <div class="ctl">
@@ -555,10 +559,20 @@ function update(){
   scene.style.filter=`brightness(${b.toFixed(3)})${diff>.05?` blur(${diff.toFixed(2)}px)`:''}`;
   $('vig').style.opacity=.55*clamp((4-N)/2.6,0,1);
   // noise
-  const native=S.dual?(iso>=3200?3200:400):400,gain=Math.max(.5,iso/native);
+  // Noise comes from light on the sensor (P, independent of ISO): photon shot noise
+  // plus read noise, which is lower on a dual-native sensor's second base ISO.
+  const hiNative=S.dual&&iso>=3200;
+  const native=hiNative?3200:400,over=Math.max(1,iso/native);
   const P=log2(t/(N*N))+S.ev-S.nd;
-  const amp=.012+.03*Math.sqrt(gain)+.5*Math.pow(2,-(P+10)/2);
-  $('grain').style.opacity=clamp(amp*3,0,.95).toFixed(3);
+  const g=(hiNative?.4:1)/Math.pow(over,.25);
+  const shot=.03*Math.pow(2,-(P+2)/2),read=.004*Math.pow(2,-(P+2))*g;
+  const sigma=Math.hypot(shot,read);
+  $('grain').style.opacity=clamp(Math.max(0,sigma-.02)*5,0,.95).toFixed(3);
+  const nLabel=sigma<.02?'negligible':sigma<.05?'low':sigma<.1?'moderate':sigma<.2?'heavy':'extreme';
+  // ISO moves middle grey: more ISO = less highlight headroom, more shadow range
+  const head=clamp(6.5-log2(iso/native),1,9),shadows=13-head;
+  $('drHl').style.width=(head/13*100)+'%';$('drSh').style.width=(shadows/13*100)+'%';
+  $('drTxt').textContent=`Middle grey sits ${shadows.toFixed(1)} stops above the shadow floor and ${head.toFixed(1)} stops below clipping.`;
 
   // readouts
   $('fVal').textContent='f/'+Nn;$('fSlider').value=S.fi;
@@ -573,7 +587,7 @@ function update(){
   const col=Math.abs(E)<.5?'var(--good)':Math.abs(E)<1.5?'var(--warn)':'var(--bad)';
   $('needle').style.left=((clamp(E,-5,5)+5)/10*100)+'%';
   $('expRead').innerHTML=`<span style="color:${col}">${Math.abs(E)<.25?'Exposure ≈ correct':`${stopsStr(E)} stops ${E>0?'over':'under'}exposed`}</span>`;
-  $('expDetail').textContent=`scene EV ${S.ev} − ND ${S.nd} → sensor`;
+  $('expDetail').textContent=`light on sensor ${stopsStr(P+2)} (ISO-independent) · noise ${nLabel}`;
   $('chips').innerHTML=[`f/${Nn}`,`${fmtT(t)} · ${ang.toFixed(ang%1?1:0)}°`,`ISO ${iso}`,S.nd?`ND −${S.nd}`:'',`${S.focal}mm`,`focus ${fmtDist(S.focus)}`].filter(Boolean).map(c=>`<span class="chip">${c}</span>`).join('');
   const w=[];
   if(E>2.5)w.push('<span class="warn">Highlights blown out</span>');
@@ -596,7 +610,7 @@ function update(){
   const why=[
     `<b>Aperture f/${Nn}:</b> the iris is ${(S.focal/N).toFixed(1)} mm wide. ${N<=2?'A wide-open iris lets rays arrive from a steep cone, so anything off the focus plane smears into big discs.':N>=8?'A small iris keeps rays nearly parallel, so most of the scene stays sharp. Past about f/11 diffraction starts softening everything.':'A middle aperture balances light and depth of field.'}`,
     `<b>Shutter ${fmtT(t)}:</b> ${lastCarPx>25?`the car smears across about ${Math.round(lastCarPx)} px during the exposure.`:lastCarPx>4?`the car blurs by about ${Math.round(lastCarPx)} px, a natural cinematic amount.`:'motion is nearly frozen.'}${Math.abs(ang-180)<2?' This is the classic 180° look.':''}`,
-    `<b>ISO ${iso}:</b> ${gain>2?`signal amplified about ${gain.toFixed(0)}× over the base setting, so the grain is obvious.`:'near the sensor’s native sensitivity, so noise stays low.'}${S.dual&&iso>=3200?' You’re on the second native ISO, which resets noise.':''}`,
+    `<b>ISO ${iso}:</b> adds no light. It only moves middle grey, leaving ${head.toFixed(1)} stops of highlight headroom. Noise is <b>${nLabel}</b> because of how much light reaches the sensor (${stopsStr(P+2)} stops vs. a well-lit reference)${sigma>.05?'; high ISO is usually a symptom of that, not the cause':''}.${hiNative?' You’re on the second native ISO, which has lower read noise.':''}`,
     `<b>Focus ${fmtDist(S.focus)}:</b> sharp from ${fmtDist(near)} to ${fmtDist(far)}. Background blur disc ≈ ${Math.round(cBg)} px wide${cBg>6?', big enough to read as bokeh':''}.`,
     `<b>Net result:</b> ${Math.abs(E)<.25?'balanced exposure.':`${Math.abs(E).toFixed(1)} stops ${E>0?'too bright. Try a smaller aperture, faster shutter, lower ISO or more ND.':'too dark. Open up, slow the shutter, raise ISO or remove ND.'}`}`
   ];
