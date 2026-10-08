@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lens Explainer</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0d0f12; --panel:#161a20; --panel2:#1d222a; --line:#2a313b;
+  --text:#e9ecef; --muted:#97a1ac; --accent:#ffb454; --blue:#5aa9ff;
+  --good:#4cd37b; --warn:#ffb454; --bad:#ff5d5d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 20px 4px}
+header h1{margin:0;font-size:22px;letter-spacing:.2px}
+header p{margin:4px 0 0;color:var(--muted);max-width:820px}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px;padding:16px 20px 40px;align-items:start}
+@media (max-width:1000px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card h2{margin:0 0 10px;font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:600}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.controls{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding-right:2px}
+@media (max-width:1000px){.controls{position:static;max-height:none}}
+
+/* picture */
+.frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;overflow:hidden;border-radius:10px;border:1px solid #000}
+.stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0}
+#scene{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:#000}
+#scene canvas{position:absolute;left:-100px;top:-100px}
+#vig{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,#000 135%)}
+#grain{position:absolute;inset:-300px;mix-blend-mode:overlay;pointer-events:none}
+.chips{position:absolute;left:10px;top:10px;right:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.chip{background:rgba(0,0,0,.62);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:2px 8px;font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#fff}
+.warns{position:absolute;left:10px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px}
+.warn{background:rgba(120,20,20,.8);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600}
+.warn.info{background:rgba(30,60,110,.85)}
+
+.meter{margin-top:12px}
+.meter .track{position:relative;height:10px;border-radius:6px;background:linear-gradient(90deg,#ff5d5d,#ffb454 25%,#4cd37b 45%,#4cd37b 55%,#ffb454 75%,#ff5d5d)}
+.meter .needle{position:absolute;top:-4px;width:4px;height:18px;margin-left:-2px;background:#fff;border-radius:2px;box-shadow:0 0 0 2px rgba(0,0,0,.6);transition:left .08s}
+.meter .ticks{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:5px}
+.meter .read{display:flex;justify-content:space-between;margin-top:4px;font-weight:600}
+
+/* svgs */
+svg{display:block;width:100%;height:auto}
+.axis{stroke:#3a4350;stroke-dasharray:4 5;stroke-width:1}
+.body{fill:#12161b;stroke:#2a313b}
+.barrel{fill:#232a33;stroke:#3a4553;stroke-width:1.5}
+.glass{fill:rgba(120,180,255,.18);stroke:rgba(150,200,255,.65);stroke-width:1.5}
+.blade{fill:#0b0d10;stroke:#566273;stroke-width:1}
+.ray-s{stroke:var(--accent);stroke-width:1.4;fill:none}
+.ray-b{stroke:var(--blue);stroke-width:1.4;fill:none}
+.ray-x{stroke-width:1;fill:none;stroke-dasharray:3 4;opacity:.35}
+.sensorbar{fill:#3b4350;transition:fill .05s}
+.open .sensorbar{fill:#ffd27a;filter:drop-shadow(0 0 6px #ffb454)}
+.lbl{fill:var(--muted);font-size:12px}
+.lbl.s{fill:var(--accent)} .lbl.b{fill:var(--blue)}
+.lbl.big{font-size:13px;font-weight:600;fill:var(--text)}
+
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:760px){.grid3{grid-template-columns:1fr}}
+.small{color:var(--muted);font-size:12px;margin-top:6px}
+.bar{height:14px;background:#0b0d10;border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
+.bar>div{height:100%;background:var(--accent)}
+.why li{margin:0 0 8px}
+.why ul{margin:0;padding-left:18px}
+.why b{color:var(--text)}
+
+/* controls */
+.ctl{padding:10px 0;border-top:1px solid var(--line)}
+.ctl:first-of-type{border-top:0;padding-top:0}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.row label,.row .name{font-weight:600}
+.val{font:600 15px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent)}
+.alt{font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
+input[type=range]{width:100%;margin:8px 0 2px;accent-color:var(--accent)}
+.hint{color:var(--muted);font-size:12px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:8px 0}
+.seg button{flex:1;background:transparent;color:var(--muted);border:0;padding:6px 4px;cursor:pointer;font:inherit;font-weight:600}
+.seg button.on{background:var(--accent);color:#1a1200}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.pill{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:999px;padding:3px 10px;cursor:pointer;font:inherit;font-size:12px}
+.pill:hover{border-color:var(--accent)}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit}
+.check{display:flex;gap:6px;align-items:center;margin-top:4px;color:var(--muted);font-size:12px}
+.check input{accent-color:var(--accent)}
+footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lens Explainer</h1>
+  <p>Move any control and watch what happens inside the lens, on the sensor, and in the final picture. Shutter works in <b>angle</b> (how Blackmagic and cinema cameras think) or <b>speed</b> (how stills cameras think).</p>
+</header>
+
+<div class="wrap">
+  <div class="col">
+    <section class="card">
+      <h2>Final picture</h2>
+      <div class="frame" id="frame">
+        <div class="stage" id="stage">
+          <div id="scene">
+            <div id="vig"></div>
+            <div id="grain"></div>
+          </div>
+        </div>
+        <div class="chips" id="chips"></div>
+        <div class="warns" id="warns"></div>
+      </div>
+      <div class="meter">
+        <div class="track"><div class="needle" id="needle"></div></div>
+        <div class="ticks"><span>−5</span><span>−4</span><span>−3</span><span>−2</span><span>−1</span><span>0</span><span>+1</span><span>+2</span><span>+3</span><span>+4</span><span>+5 stops</span></div>
+        <div class="read"><span id="expRead"></span><span class="alt" id="expDetail"></span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Inside the lens (side view)</h2>
+      <svg id="lensSvg" viewBox="-60 0 960 380" role="img" aria-label="Lens cross-section"></svg>
+      <div class="small"><span style="color:var(--accent)">●</span> amber = light from the subject you focused on &nbsp; <span style="color:var(--blue)">●</span> blue = light from the distant background &nbsp; dashed = light blocked by the iris. The glass slides back and forth to focus; the sensor stays put.</div>
+    </section>
+
+    <div class="grid3">
+      <section class="card">
+        <h2>Iris (front view)</h2>
+        <svg id="irisSvg" viewBox="0 0 200 200"></svg>
+        <div class="small" id="irisTxt"></div>
+        <div class="bar"><div id="lightBar"></div></div>
+        <div class="small" id="lightTxt"></div>
+      </section>
+      <section class="card">
+        <h2>Rotary shutter</h2>
+        <svg id="shutSvg" viewBox="0 0 200 200"></svg>
+        <div class="small" id="shutTxt"></div>
+        <div class="bar"><div id="expBar"></div></div>
+        <div class="small" id="frameTxt"></div>
+      </section>
+      <section class="card why">
+        <h2>What's happening</h2>
+        <ul id="why"></ul>
+      </section>
+    </div>
+  </div>
+
+  <aside class="col controls">
+    <section class="card">
+      <h2>Presets</h2>
+      <div class="pills" id="presets"></div>
+    </section>
+
+    <section class="card">
+      <h2>Exposure</h2>
+
+      <div class="ctl">
+        <div class="row"><span class="name">Aperture</span><span class="val" id="fVal"></span></div>
+        <input type="range" id="fSlider" min="3" max="27" step="1">
+        <div class="hint">Size of the hole the light passes through. Lower f-number = bigger hole = more light and blurrier background.</div>
+      </div>
+
+      <div class="ctl">
+        <div class="row"><span class="name">Shutter</span><span><span class="val" id="shVal"></span></span></div>
+        <div class="seg" id="modeSeg"><button data-m="angle">Shutter angle</button><button data-m="speed">Shutter speed</button></div>
+        <div class="alt" id="shAlt" style="text-align:right"></div>
+        <input type="range" id="shSlider">
+        <div class="pills" id="shChips"></div>
+        <div class="row" style="margin-top:8px"><label for="fps">Frame rate</label>
+          <select id="fps"><option>23.976</option><option selected>24</option><option>25</option><option>30</option><option>50</option><option>60</option><option>120</option></select></div>
+        <div class="hint" style="margin-top:6px">How long the sensor collects light per frame. Angle is the fraction of a spinning disc that's open; 180° at 24 fps = 1/48 s, the classic film look. Blackmagic cameras let you pick either.</div>
+      </div>
+
+      <div class="ctl">
+        <div class="row"><span class="name">ISO</span><span class="val" id="isoVal"></span></div>
+        <input type="range" id="isoSlider" min="0" max="24" step="1">
+        <label class="check"><input type="checkbox" id="dual" checked> Dual native ISO (e.g. Pocket 4K: 400 &amp; 3200)</label>
+        <div class="hint">Amplifies the sensor signal. Brighter picture, but noise gets amplified too. Dual-native sensors drop back to low noise at their second base ISO.</div>
+      </div>
+
+      <div class="ctl">
+        <div class="row"><span class="name">ND filter</span><span class="val" id="ndVal"></span></div>
+        <div class="seg" id="ndSeg"><button data-nd="0">None</button><button data-nd="2">2 stops</button><button data-nd="4">4 stops</button><button data-nd="6">6 stops</button></div>
+        <div class="hint">Sunglasses for the sensor. Cuts light without touching aperture or shutter.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Lens &amp; scene</h2>
+      <div class="ctl">
+        <div class="row"><span class="name">Focal length</span><span class="val" id="focalVal"></span></div>
+        <input type="range" id="focalSlider" min="18" max="135" step="1">
+        <div class="hint">Wider = more in frame; longer = tighter and shallower depth of field.</div>
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="name">Focus distance</span><span class="val" id="focusVal"></span></div>
+        <input type="range" id="focusSlider" min="0" max="1000" step="1">
+        <div class="hint">Person is 3 m away, the car 6 m, the leaves 0.9 m, the skyline 80 m. Rack focus and see who goes soft.</div>
+      </div>
+      <div class="ctl">
+        <div class="row"><label for="sensor">Sensor</label>
+          <select id="sensor"><option value="24.9" selected>Super 35 (24.9 mm)</option><option value="18.96">Micro Four Thirds (19 mm)</option></select></div>
+        <div class="hint">Smaller sensor = tighter view at the same focal length and deeper focus.</div>
+      </div>
+      <div class="ctl">
+        <div class="row"><span class="name">Scene brightness</span><span class="val" id="evVal"></span></div>
+        <input type="range" id="evSlider" min="1" max="16" step="0.5">
+        <div class="pills" id="evChips"></div>
+        <div class="hint">Measured in EV (at ISO 100). Every +1 EV is twice the light.</div>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<footer>Simplified teaching model: thin-lens optics, circle-of-confusion blur, and a stylised exposure/noise curve. Real cinema lenses are marked in T-stops (f-stops corrected for light lost in the glass), which run roughly 1/3 to 1/2 stop slower than the f-number. Sensor size here also affects field of view and depth of field.</footer>
+
+<script>
+(()=>{
+const W=1280,H=720,M=100;
+const $=id=>document.getElementById(id);
+const F_STOPS=[1.0,1.1,1.2,1.4,1.6,1.8,2,2.2,2.5,2.8,3.2,3.5,4,4.5,5,5.6,6.3,7.1,8,9,10,11,13,14,16,18,20,22];
+const ISOS=[100,125,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000,10000,12800,16000,20000,25600];
+const SPEEDS=[24,25,30,48,50,60,96,100,120,125,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000];
+const DEFAULTS={fps:24,mode:'angle',angle:180,den:48,fi:9,ii:6,nd:4,focal:35,focus:3,ev:10.5,sensor:24.9,dual:true};
+const S=Object.assign({},DEFAULTS);
+const D_BG=80,D_MID=3,D_CAR=6,D_FG=0.9, CAR_SPEED=1000;
+
+/* ---------- helpers ---------- */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const log2=Math.log2;
+const Nval=()=>Math.pow(2,S.fi/6);
+const tSec=()=>S.mode==='angle'?S.angle/(360*S.fps):1/S.den;
+const fmtDist=d=>d>=900?'∞':d<10?d.toFixed(1)+' m':Math.round(d)+' m';
+const fmtT=t=>t>=0.5?t.toFixed(1)+' s':'1/'+Math.round(1/t);
+const stopsStr=e=>(e>=0?'+':'−')+Math.abs(e).toFixed(1);
+const posToDist=p=>p>=1000?1e6:0.5*Math.pow(200,p/999);
+const distToPos=d=>d>=1e5?1000:Math.round(999*Math.log(d/0.5)/Math.log(200));
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+function availSpeeds(){return SPEEDS.filter(s=>s>=S.fps-0.01)}
+function nearestIdx(arr,v){let bi=0,bd=1e9;arr.forEach((a,i)=>{const d=Math.abs(Math.log(a/v));if(d<bd){bd=d;bi=i}});return bi}
+
+/* ---------- canvases ---------- */
+const scene=$('scene');
+const cv={};
+['bg','bokeh','mid','car','fg'].forEach(n=>{
+  const c=document.createElement('canvas');c.width=W+2*M;c.height=H+2*M;
+  scene.insertBefore(c,$('vig'));cv[n]=c;
+});
+function prep(c,z){
+  const x=c.getContext('2d');x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,c.width,c.height);
+  x.translate(M+W/2,M+H/2);x.scale(z,z);x.translate(-W/2,-H/2);return x;
+}
+
+// grain tile
+(()=>{
+  const t=document.createElement('canvas');t.width=t.height=256;const x=t.getContext('2d');
+  const d=x.createImageData(256,256);
+  for(let i=0;i<d.data.length;i+=4){
+    const g=Math.random()*255;
+    d.data[i]=g*.6+Math.random()*255*.4;d.data[i+1]=g*.6+Math.random()*255*.4;d.data[i+2]=g*.6+Math.random()*255*.4;d.data[i+3]=255;
+  }
+  x.putImageData(d,0,0);$('grain').style.backgroundImage=`url(${t.toDataURL()})`;
+})();
+
+/* ---------- scene drawing ---------- */
+const rngL=mulberry(11);
+const LIGHTS=Array.from({length:48},()=>({
+  x:-250+rngL()*1780,y:330+rngL()*92,i:.45+rngL()*.55,
+  c:['255,214,140','255,244,220','170,220,255','255,170,150','255,214,140'][Math.floor(rngL()*5)]}));
+const rngB=mulberry(5);
+const BUILD=[];for(let X=-500;X<1800;){const w=18+rngB()*28,h=14+rngB()*64;BUILD.push({x:X,w,h,win:Array.from({length:Math.floor(h/10)},()=>[rngB()*w*.8,rngB()*h*.8,rngB()>.55])});X+=w+2}
+
+function drawBG(z){
+  const x=prep(cv.bg,z);
+  let g=x.createLinearGradient(0,-1200,0,430);
+  g.addColorStop(0,'#2d5a99');g.addColorStop(.6,'#7db0dc');g.addColorStop(.88,'#f2c48a');g.addColorStop(1,'#ffd9a0');
+  x.fillStyle=g;x.fillRect(-3000,-1300,7300,1740);
+  const sg=x.createRadialGradient(930,330,0,930,330,340);
+  sg.addColorStop(0,'rgba(255,248,225,1)');sg.addColorStop(.12,'rgba(255,232,170,.9)');sg.addColorStop(1,'rgba(255,200,120,0)');
+  x.fillStyle=sg;x.beginPath();x.arc(930,330,340,0,7);x.fill();
+  x.fillStyle='#fffbe8';x.beginPath();x.arc(930,330,34,0,7);x.fill();
+  x.fillStyle='rgba(255,255,255,.5)';
+  [[200,120,170,26],[430,200,210,22],[1080,110,190,28],[760,170,150,16],[-250,160,230,26],[1500,200,200,24]].forEach(([cx,cy,rx,ry])=>{
+    for(let k=-1;k<=1;k++){x.beginPath();x.ellipse(cx+k*rx*.5,cy+Math.abs(k)*-6,rx*.6,ry,0,0,7);x.fill()}
+  });
+  const mt=(pts,col)=>{x.fillStyle=col;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);pts.forEach(p=>x.lineTo(p[0],p[1]));x.lineTo(2400,440);x.lineTo(-1200,440);x.closePath();x.fill()};
+  mt([[-1200,430],[-600,430],[-300,300],[-120,360],[120,250],[380,350],[560,300],[800,380],[1100,290],[1350,360],[1650,260],[1900,430],[2400,430]],'#97aecb');
+  mt([[-1200,430],[-500,380],[-250,400],[40,350],[300,410],[620,370],[900,415],[1250,360],[1600,405],[2000,380],[2400,430]],'#6c87a4');
+  x.fillStyle='#4a6a3b';x.fillRect(-3000,428,7300,1300);
+  BUILD.forEach(b=>{
+    x.fillStyle='#2b3446';x.fillRect(b.x,430-b.h,b.w,b.h);
+    b.win.forEach(([wx,wy,on])=>{if(on){x.fillStyle='rgba(255,210,120,.85)';x.fillRect(b.x+wx,430-b.h+wy,3,4)}});
+  });
+}
+
+function drawMid(z){
+  const x=prep(cv.mid,z);
+  x.fillStyle='#4f7d3c';x.fillRect(-3000,468,7300,30);
+  x.fillStyle='#d8d2c0';x.fillRect(-3000,498,7300,8);
+  x.fillStyle='#4a4e57';x.fillRect(-3000,506,7300,94);
+  x.fillStyle='#e9e2b5';for(let i=-20;i<40;i++)x.fillRect(i*120,582,60,4);
+  x.fillStyle='#c9c6bd';x.fillRect(-3000,600,7300,8);
+  x.fillStyle='#8d8f94';x.fillRect(-3000,608,7300,1400);
+  x.strokeStyle='rgba(0,0,0,.25)';x.lineWidth=3;for(let i=-20;i<40;i++){x.beginPath();x.moveTo(i*210,608);x.lineTo(i*210-60,1000);x.stroke()}
+  x.save();x.translate(360,640);x.scale(.68,.68);x.translate(-360,-540);
+  x.fillStyle='rgba(0,0,0,.28)';x.beginPath();x.ellipse(360,544,70,10,0,0,7);x.fill();
+  x.fillStyle='#2d3a55';rr(x,334,400,23,140,8);x.fill();rr(x,364,400,23,140,8);x.fill();
+  x.fillStyle='#1c1c20';rr(x,328,526,32,16,6);x.fill();rr(x,360,526,32,16,6);x.fill();
+  x.fillStyle='#e8742a';rr(x,320,258,80,160,26);x.fill();
+  x.fillStyle='#d3651f';rr(x,300,272,26,120,12);x.fill();rr(x,394,272,26,120,12);x.fill();
+  x.fillStyle='#d9a77e';x.fillRect(349,236,22,28);
+  x.beginPath();x.arc(360,218,34,0,7);x.fill();
+  x.fillStyle='#2a1d14';x.beginPath();x.arc(360,212,35,Math.PI*1.02,Math.PI*1.98);x.fill();
+  x.fillStyle='#1b1b1f';rr(x,328,326,64,42,6);x.fill();
+  x.fillStyle='#3a4a66';x.beginPath();x.arc(360,347,12,0,7);x.fill();
+  x.fillStyle='rgba(255,255,255,.55)';x.beginPath();x.arc(356,343,3,0,7);x.fill();
+  // rim light
+  x.strokeStyle='rgba(255,226,170,.55)';x.lineWidth=3;x.beginPath();x.arc(360,218,34,-.9,.4);x.stroke();
+  x.restore();
+}
+
+function carShape(x,ox){
+  x.save();x.translate(ox,0);x.translate(900,546);x.scale(1.1,1.1);x.translate(-900,-626);
+  x.fillStyle='rgba(0,0,0,.35)';x.beginPath();x.ellipse(900,606,150,14,0,0,7);x.fill();
+  x.fillStyle='#c8202a';rr(x,770,534,260,64,22);x.fill();
+  x.fillStyle='#a91a24';x.beginPath();x.moveTo(830,536);x.lineTo(862,492);x.lineTo(962,492);x.lineTo(996,536);x.closePath();x.fill();
+  x.fillStyle='#9fc4dd';
+  x.beginPath();x.moveTo(844,534);x.lineTo(868,502);x.lineTo(908,502);x.lineTo(908,534);x.closePath();x.fill();
+  x.beginPath();x.moveTo(916,534);x.lineTo(916,502);x.lineTo(956,502);x.lineTo(980,534);x.closePath();x.fill();
+  x.fillStyle='#fff3b0';rr(x,1018,552,14,14,4);x.fill();
+  x.fillStyle='#ff3b3b';rr(x,768,552,10,14,3);x.fill();
+  [830,975].forEach(wx=>{x.fillStyle='#16161a';x.beginPath();x.arc(wx,598,28,0,7);x.fill();x.fillStyle='#b8bcc4';x.beginPath();x.arc(wx,598,12,0,7);x.fill()});
+  x.restore();
+}
+function drawCar(z,t){
+  const x=prep(cv.car,z);const len=CAR_SPEED*t;
+  const n=Math.min(64,Math.max(1,Math.ceil(len*z/1.6)));
+  for(let i=0;i<n;i++){x.globalAlpha=1/(i+1);carShape(x,n>1?(i/(n-1)-.5)*len:0)}
+  x.globalAlpha=1;return len*z;
+}
+
+function leaf(x,px,py,len,wid,ang,c1,c2){
+  x.save();x.translate(px,py);x.rotate(ang);
+  const g=x.createLinearGradient(0,0,len,0);g.addColorStop(0,c1);g.addColorStop(1,c2);
+  x.fillStyle=g;x.beginPath();x.moveTo(0,0);x.bezierCurveTo(len*.3,-wid,len*.75,-wid*.8,len,0);x.bezierCurveTo(len*.75,wid*.8,len*.3,wid,0,0);x.fill();
+  x.strokeStyle='rgba(255,255,255,.22)';x.lineWidth=3;x.beginPath();x.moveTo(0,0);x.lineTo(len*.95,0);x.stroke();
+  x.restore();
+}
+function drawFG(z){
+  const x=prep(cv.fg,z);const r=mulberry(3);const d=Math.PI/180;
+  for(let i=0;i<7;i++)leaf(x,-60,780,380+r()*160,70+r()*30,(-75+i*9+r()*8)*d,'#1d5229','#4a9a4c');
+  for(let i=0;i<7;i++)leaf(x,1340,780,360+r()*160,70+r()*30,(-105-i*9-r()*8)*d,'#1d5229','#4a9a4c');
+  for(let i=0;i<4;i++)leaf(x,1340,-60,300+r()*120,60+r()*20,(120+i*14+r()*8)*d,'#1d5229','#4a9a4c');
+  [[190,520,26,'#fff'],[1110,540,22,'#ffd6e8'],[1190,170,18,'#fff']].forEach(([fx,fy,fr,col])=>{
+    x.fillStyle=col;for(let k=0;k<6;k++){x.beginPath();x.ellipse(fx+Math.cos(k)*fr*.8,fy+Math.sin(k)*fr*.8,fr*.6,fr*.4,k,0,7);x.fill()}
+    x.fillStyle='#f2c230';x.beginPath();x.arc(fx,fy,fr*.35,0,7);x.fill();
+  });
+}
+
+function drawBokeh(z,rpx,poly){
+  const x=prep(cv.bokeh,z);x.globalCompositeOperation='lighter';
+  const r0=2.6, r=Math.max(rpx,r0)/z;
+  const a0=Math.min(1,.95*Math.pow(r0/Math.max(rpx,r0),.7));
+  LIGHTS.forEach(l=>{
+    const a=a0*l.i;
+    x.beginPath();
+    if(poly){for(let k=0;k<9;k++){const an=k/9*Math.PI*2+.35;const px=l.x+r*Math.cos(an),py=l.y+r*Math.sin(an);k?x.lineTo(px,py):x.moveTo(px,py)}x.closePath()}
+    else x.arc(l.x,l.y,r,0,7);
+    x.fillStyle=`rgba(${l.c},${a*.75})`;x.fill();
+    x.strokeStyle=`rgba(${l.c},${Math.min(1,a*1.1)})`;x.lineWidth=1.4/z;x.stroke();
+  });
+}
+
+/* ---------- optics ---------- */
+function cocMM(d,s,N){
+  const f=S.focal,D=d*1000,Sf=s*1000;
+  if(Sf<=f*1.01)return 0;
+  return f*f*Math.abs(D-Sf)/(N*D*(Sf-f));
+}
+function dof(N){
+  const f=S.focal,c=S.sensor*1.2/1500,s=S.focus*1000;
+  const H=f*f/(N*c)+f;
+  const near=s*(H-f)/(H+s-2*f);
+  const far=s<H?s*(H-f)/(H-s):Infinity;
+  return [near/1000,far/1000];
+}
+
+/* ---------- lens cross-section ---------- */
+const lensSvg=$('lensSvg');
+function lensDiagram(N,blurSub,blurBg){
+  const cy=190,sx=660,R=62,XMIN=-50;
+  const fv=40+S.focal*0.6;
+  const m2u=m=>fv*1.15+60+230*m/(m+4);
+  const vOf=u=>fv*u/(u-fv);
+  const uSub=m2u(D_MID),uBg=m2u(D_BG),uF=m2u(Math.min(S.focus,1e5));
+  const vS=vOf(uF),lx=sx-vS;
+  const a=clamp(fv*1.6/N,1.5,54);
+  const Y=v=>cy-v;
+  let s='';
+  s+=`<line class="axis" x1="${XMIN-10}" y1="${cy}" x2="900" y2="${cy}"/>`;
+  s+=`<rect class="body" x="${sx}" y="40" width="${900-sx}" height="300" rx="10"/>`;
+  s+=`<text class="lbl" x="${sx+12}" y="332">camera body</text>`;
+  const bEnd=Math.min(lx+52,sx-6);
+  s+=`<rect class="barrel" x="${lx-72}" y="${cy-82}" width="${bEnd-(lx-72)}" height="164" rx="14"/>`;
+  const glass=(gx,h)=>`<path class="glass" d="M${gx} ${cy-h} Q${gx+15} ${cy} ${gx} ${cy+h} Q${gx-15} ${cy} ${gx} ${cy-h}Z"/>`;
+  s+=glass(lx-44,62)+glass(lx,56)+glass(lx+30,48);
+  const fan=(u,cls,xcls)=>{
+    const v=vOf(u);let out='';
+    const x0=Math.max(XMIN,lx-u);
+    const yAt=(h,x)=>h*(x-(lx-u))/u;
+    for(let k=0;k<=8;k++){
+      const h=-a+2*a*k/8;
+      out+=`<path class="${cls}" d="M${x0} ${Y(yAt(h,x0))} L${lx} ${Y(h)} L${sx} ${Y(h*(1-vS/v))}"/>`;
+    }
+    for(const sg of [-1,1])for(let k=1;k<=3;k++){
+      const h=sg*(a+(R-a)*k/3);if(Math.abs(h)<=a+.5||Math.abs(h)>R)continue;
+      out+=`<path class="ray-x" style="stroke:var(${xcls})" d="M${x0} ${Y(yAt(h,x0))} L${lx} ${Y(h)}"/>`;
+    }
+    out+=`<circle cx="${lx+v}" cy="${cy}" r="3" fill="var(${xcls})"/>`;
+    return {out,blur:a*Math.abs(v-vS)/v};
+  };
+  const fb=fan(uBg,'ray-b','--blue'), fs=fan(uSub,'ray-s','--accent');
+  s+=fb.out+fs.out;
+  s+=`<rect class="blade" x="${lx-4}" y="${cy-R-12}" width="8" height="${R+12-a}" rx="2"/>`;
+  s+=`<rect class="blade" x="${lx-4}" y="${cy+a}" width="8" height="${R+12-a}" rx="2"/>`;
+  s+=`<text class="lbl big" x="${lx}" y="${cy-R-22}" text-anchor="middle">iris  f/${F_STOPS[S.fi]}</text>`;
+  // subject + background
+  const sxp=lx-uSub;
+  if(sxp>XMIN+10){
+    s+=`<circle cx="${sxp}" cy="${cy-30}" r="7" fill="var(--accent)"/><rect x="${sxp-9}" y="${cy-20}" width="18" height="34" rx="6" fill="var(--accent)"/>`;
+  }
+  s+=`<text class="lbl s" x="${Math.max(XMIN,sxp-20)}" y="${cy+66}">Subject · 3 m</text>`;
+  s+=`<text class="lbl b" x="${XMIN}" y="${cy-92}">Background · ${D_BG} m (rays almost parallel)</text>`;
+  // sensor
+  s+=`<rect class="sensorbar" x="${sx-4}" y="${cy-78}" width="8" height="156" rx="2"/>`;
+  s+=`<text class="lbl big" x="${sx-8}" y="${cy-88}" text-anchor="end">sensor</text>`;
+  // inset
+  const rS=Math.min(32,1.5+fs.blur*3.2),rB=Math.min(32,1.5+fb.blur*3.2);
+  s+=`<text class="lbl big" x="${sx+14}" y="68">What the sensor sees</text>`;
+  s+=`<circle cx="${sx+55}" cy="130" r="${rS}" fill="var(--accent)" opacity=".75"/>`;
+  s+=`<circle cx="${sx+165}" cy="130" r="${rB}" fill="var(--blue)" opacity=".75"/>`;
+  const lab=b=>b<.6?'sharp point':'blurred disc';
+  s+=`<text class="lbl s" x="${sx+55}" y="186" text-anchor="middle">subject</text><text class="lbl" x="${sx+55}" y="203" text-anchor="middle">${lab(fs.blur)}</text>`;
+  s+=`<text class="lbl b" x="${sx+165}" y="186" text-anchor="middle">background</text><text class="lbl" x="${sx+165}" y="203" text-anchor="middle">${lab(fb.blur)}</text>`;
+  s+=`<text class="lbl" x="${sx+14}" y="250">A point of light is a dot only</text><text class="lbl" x="${sx+14}" y="267">when its rays meet on the sensor.</text>`;
+  lensSvg.innerHTML=s;
+}
+
+/* ---------- iris & shutter svgs ---------- */
+function irisDiagram(N){
+  const r=clamp(80*1.4/N,4,80);
+  const pts=Array.from({length:9},(_,k)=>{const an=k/9*Math.PI*2-Math.PI/2;return [100+r*Math.cos(an),100+r*Math.sin(an)]});
+  let s=`<circle cx="100" cy="100" r="92" fill="#232a33" stroke="#3a4553" stroke-width="3"/>`;
+  s+=`<circle cx="100" cy="100" r="82" fill="#0b0d10"/>`;
+  pts.forEach((p,k)=>{const n=pts[(k+1)%9];const dx=n[0]-p[0],dy=n[1]-p[1],L=Math.hypot(dx,dy)||1;
+    s+=`<line x1="${p[0]-dx/L*60}" y1="${p[1]-dy/L*60}" x2="${n[0]}" y2="${n[1]}" stroke="#3b4554" stroke-width="1.2"/>`});
+  s+=`<polygon points="${pts.map(p=>p.join(',')).join(' ')}" fill="#fff6dc"/>`;
+  $('irisSvg').innerHTML=s;
+}
+const shutSvg=$('shutSvg');
+function shutterDiagram(ang){
+  let wedge;
+  if(ang>=359.9)wedge=`<circle cx="100" cy="100" r="78" fill="#ffb454" opacity=".85"/>`;
+  else{const rad=ang*Math.PI/180;wedge=`<path d="M100 100 L100 22 A78 78 0 ${ang>180?1:0} 1 ${100+78*Math.sin(rad)} ${100-78*Math.cos(rad)} Z" fill="#ffb454" opacity=".85"/>`}
+  shutSvg.innerHTML=`<circle cx="100" cy="100" r="92" fill="#232a33" stroke="#3a4553" stroke-width="3"/>
+  <g id="rotor"><circle cx="100" cy="100" r="78" fill="#0b0d10"/>${wedge}<circle cx="100" cy="100" r="8" fill="#3a4553"/></g>
+  <rect x="88" y="4" width="24" height="16" rx="3" id="gate" fill="#0b0d10" stroke="#fff" stroke-width="1.5"/>
+  <text x="100" y="16" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">GATE</text>`;
+}
+
+/* ---------- UI plumbing ---------- */
+function syncShutterUI(){
+  const sl=$('shSlider');
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===S.mode));
+  if(S.mode==='angle'){sl.min=11.2;sl.max=360;sl.step=.1;sl.value=S.angle}
+  else{const av=availSpeeds();sl.min=0;sl.max=av.length-1;sl.step=1;sl.value=nearestIdx(av,S.den)}
+  const chips=S.mode==='angle'?[45,90,172.8,180,270,360].map(v=>({l:v+'°',f:()=>{S.angle=v}})):
+    [48,50,100,250,1000,4000].filter(v=>v>=S.fps).map(v=>({l:'1/'+v,f:()=>{S.den=v}}));
+  $('shChips').innerHTML='';
+  chips.forEach(c=>{const b=document.createElement('button');b.className='pill';b.textContent=c.l;b.onclick=()=>{c.f();syncShutterUI();update()};$('shChips').appendChild(b)});
+}
+$('modeSeg').onclick=e=>{
+  const m=e.target.dataset.m;if(!m||m===S.mode)return;
+  const t=tSec();
+  if(m==='speed'){const av=availSpeeds();S.den=av[nearestIdx(av,1/t)]}
+  else S.angle=clamp(Math.round(t*S.fps*3600)/10,11.2,360);
+  S.mode=m;syncShutterUI();update();
+};
+$('shSlider').oninput=e=>{
+  const v=+e.target.value;
+  if(S.mode==='angle')S.angle=v;else S.den=availSpeeds()[v];
+  update();
+};
+$('fps').onchange=e=>{
+  S.fps=+e.target.value;
+  if(S.mode==='speed'){const av=availSpeeds();S.den=av[nearestIdx(av,S.den)]}
+  syncShutterUI();update();
+};
+$('fSlider').oninput=e=>{S.fi=+e.target.value;update()};
+$('isoSlider').oninput=e=>{S.ii=+e.target.value;update()};
+$('dual').onchange=e=>{S.dual=e.target.checked;update()};
+$('ndSeg').onclick=e=>{const v=e.target.dataset.nd;if(v==null)return;S.nd=+v;update()};
+$('focalSlider').oninput=e=>{S.focal=+e.target.value;update()};
+$('focusSlider').oninput=e=>{S.focus=posToDist(+e.target.value);update()};
+$('sensor').onchange=e=>{S.sensor=+e.target.value;update()};
+$('evSlider').oninput=e=>{S.ev=+e.target.value;update()};
+
+const EVCHIPS=[['Night street',2.5],['Indoors',6],['Golden hour',10.5],['Overcast',12],['Bright sun',15]];
+EVCHIPS.forEach(([n,v])=>{const b=document.createElement('button');b.className='pill';b.textContent=n+' · '+v;b.onclick=()=>{S.ev=v;update()};$('evChips').appendChild(b)});
+
+const PRESETS=[
+  ['Cinematic 24p 180°',{}],
+  ['Dreamy portrait',{fi:3,focal:85,nd:6,ev:11}],
+  ['Deep-focus landscape',{fi:24,focal:18,focus:8,nd:0,ev:11.5}],
+  ['Freeze the action',{mode:'speed',den:2000,fi:6,ii:9,nd:2,ev:12,focal:50}],
+  ['Silky motion blur 360°',{angle:360,fi:15,ev:11.5}],
+  ['Night street, dual-native',{fi:6,ii:15,nd:0,ev:2.5}],
+];
+PRESETS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
+  b.onclick=()=>{Object.assign(S,DEFAULTS,p);if(p.mode==='speed')S.mode='speed';syncAll();update()};$('presets').appendChild(b)});
+
+function syncAll(){
+  $('fSlider').value=S.fi;$('isoSlider').value=S.ii;$('dual').checked=S.dual;
+  $('focalSlider').value=S.focal;$('focusSlider').value=distToPos(S.focus);
+  $('sensor').value=S.sensor;$('evSlider').value=S.ev;$('fps').value=S.fps;
+  syncShutterUI();
+}
+
+/* ---------- main update ---------- */
+let lastZ='',lastB='',lastC='',lastCarPx=0;
+const frame=$('frame'),stage=$('stage');
+new ResizeObserver(()=>{stage.style.transform=`scale(${frame.clientWidth/W})`}).observe(frame);
+
+function update(){
+  const N=Nval(),iso=ISOS[S.ii],t=tSec(),ang=Math.min(360,t*S.fps*360),Nn=F_STOPS[S.fi];
+  const E=log2(t/(N*N)*(iso/100))+S.ev-S.nd;
+  const z=(S.focal/S.sensor)/(35/24.9);
+
+  // blur per layer
+  const cp=d=>cocMM(d,S.focus,N)/S.sensor*W;
+  const cBg=cp(D_BG),cMid=cp(D_MID),cFg=cp(D_FG);
+  const bl=px=>px<.3?'none':`blur(${Math.min(48,px*.3).toFixed(2)}px)`;
+  cv.bg.style.filter=bl(cBg);cv.mid.style.filter=bl(cMid);cv.car.style.filter=bl(cp(D_CAR));cv.fg.style.filter=bl(cFg);
+
+  const zk=S.focal+'|'+S.sensor;
+  if(zk!==lastZ){drawBG(z);drawMid(z);drawFG(z);lastZ=zk;lastB='';lastC=''}
+  const poly=N>=2.2,bk=zk+'|'+cBg.toFixed(1)+'|'+poly;
+  if(bk!==lastB){drawBokeh(z,cBg/2,poly);lastB=bk}
+  const ck=zk+'|'+t.toFixed(5);
+  if(ck!==lastC){lastCarPx=drawCar(z,t);lastC=ck}
+
+  // exposure look
+  const b=clamp(Math.pow(2,E/2.2),.01,30);
+  const diff=N>8?(N-8)/14*1.6:0;
+  scene.style.filter=`brightness(${b.toFixed(3)})${diff>.05?` blur(${diff.toFixed(2)}px)`:''}`;
+  $('vig').style.opacity=.55*clamp((4-N)/2.6,0,1);
+  // noise
+  const native=S.dual?(iso>=3200?3200:400):400,gain=Math.max(.5,iso/native);
+  const P=log2(t/(N*N))+S.ev-S.nd;
+  const amp=.012+.03*Math.sqrt(gain)+.5*Math.pow(2,-(P+10)/2);
+  $('grain').style.opacity=clamp(amp*3,0,.95).toFixed(3);
+
+  // readouts
+  $('fVal').textContent='f/'+Nn;$('fSlider').value=S.fi;
+  const sp=Math.round(1/t);
+  if(S.mode==='angle'){$('shVal').textContent=S.angle.toFixed(1)+'°';$('shAlt').textContent=`= 1/${sp} s at ${S.fps} fps`}
+  else{$('shVal').textContent='1/'+S.den;$('shAlt').textContent=`= ${ang.toFixed(1)}° at ${S.fps} fps`}
+  $('isoVal').textContent=iso;$('ndVal').textContent=S.nd?`−${S.nd} stops`:'off';
+  document.querySelectorAll('#ndSeg button').forEach(x=>x.classList.toggle('on',+x.dataset.nd===S.nd));
+  $('focalVal').textContent=S.focal+' mm';$('focusVal').textContent=fmtDist(S.focus);
+  $('evVal').textContent='EV '+S.ev;
+
+  const col=Math.abs(E)<.5?'var(--good)':Math.abs(E)<1.5?'var(--warn)':'var(--bad)';
+  $('needle').style.left=((clamp(E,-5,5)+5)/10*100)+'%';
+  $('expRead').innerHTML=`<span style="color:${col}">${Math.abs(E)<.25?'Exposure ≈ correct':`${stopsStr(E)} stops ${E>0?'over':'under'}exposed`}</span>`;
+  $('expDetail').textContent=`scene EV ${S.ev} − ND ${S.nd} → sensor`;
+  $('chips').innerHTML=[`f/${Nn}`,`${fmtT(t)} · ${ang.toFixed(ang%1?1:0)}°`,`ISO ${iso}`,S.nd?`ND −${S.nd}`:'',`${S.focal}mm`,`focus ${fmtDist(S.focus)}`].filter(Boolean).map(c=>`<span class="chip">${c}</span>`).join('');
+  const w=[];
+  if(E>2.5)w.push('<span class="warn">Highlights blown out</span>');
+  if(E<-3)w.push('<span class="warn">Crushed in the shadows</span>');
+  if(lastCarPx>25)w.push('<span class="warn info">Heavy motion blur</span>');
+  if(N>=11)w.push('<span class="warn info">Diffraction softening</span>');
+  $('warns').innerHTML=w.join('');
+
+  lensDiagram(N);irisDiagram(N);shutterDiagram(ang);
+
+  $('irisTxt').textContent=`Opening ≈ ${(S.focal/N).toFixed(1)} mm wide (focal length ÷ f-number).`;
+  const rel=Math.pow(1.4/N,2);
+  $('lightBar').style.width=Math.max(1,rel*100)+'%';
+  $('lightTxt').textContent=`Light passed: ${(2*log2(N/1.4)).toFixed(1)} stops less than f/1.4`;
+  $('shutTxt').textContent=`Disc is ${ang.toFixed(ang%1?1:0)}° open; it spins once per frame (slowed for display).`;
+  $('expBar').style.width=(ang/360*100)+'%';
+  $('frameTxt').textContent=`Light collected for ${fmtT(t)} of each ${fmtT(1/S.fps)} frame (${(ang/360*100).toFixed(0)}%)`;
+
+  const [near,far]=dof(N);
+  const why=[
+    `<b>Aperture f/${Nn}:</b> the iris is ${(S.focal/N).toFixed(1)} mm wide. ${N<=2?'A wide-open iris lets rays arrive from a steep cone, so anything off the focus plane smears into big discs.':N>=8?'A small iris keeps rays nearly parallel, so most of the scene stays sharp. Past about f/11 diffraction starts softening everything.':'A middle aperture balances light and depth of field.'}`,
+    `<b>Shutter ${fmtT(t)}:</b> ${lastCarPx>25?`the car smears across about ${Math.round(lastCarPx)} px during the exposure.`:lastCarPx>4?`the car blurs by about ${Math.round(lastCarPx)} px, a natural cinematic amount.`:'motion is nearly frozen.'}${Math.abs(ang-180)<2?' This is the classic 180° look.':''}`,
+    `<b>ISO ${iso}:</b> ${gain>2?`signal amplified about ${gain.toFixed(0)}× over the base setting, so the grain is obvious.`:'near the sensor’s native sensitivity, so noise stays low.'}${S.dual&&iso>=3200?' You’re on the second native ISO, which resets noise.':''}`,
+    `<b>Focus ${fmtDist(S.focus)}:</b> sharp from ${fmtDist(near)} to ${fmtDist(far)}. Background blur disc ≈ ${Math.round(cBg)} px wide${cBg>6?', big enough to read as bokeh':''}.`,
+    `<b>Net result:</b> ${Math.abs(E)<.25?'balanced exposure.':`${Math.abs(E).toFixed(1)} stops ${E>0?'too bright. Try a smaller aperture, faster shutter, lower ISO or more ND.':'too dark. Open up, slow the shutter, raise ISO or remove ND.'}`}`
+  ];
+  $('why').innerHTML=why.map(x=>`<li>${x}</li>`).join('');
+}
+
+/* ---------- animation ---------- */
+let gf=0;
+function tick(ts){
+  const phase=(ts/2000*360)%360;
+  const rotor=document.getElementById('rotor');
+  if(rotor){
+    rotor.setAttribute('transform',`rotate(${phase.toFixed(1)} 100 100)`);
+    const ang=Math.min(360,tSec()*S.fps*360);
+    const u=((-phase)%360+360)%360;const open=u<=ang;
+    lensSvg.classList.toggle('open',open);
+    const g=document.getElementById('gate');if(g)g.setAttribute('fill',open?'#ffb454':'#0b0d10');
+  }
+  if(++gf%3===0)$('grain').style.backgroundPosition=`${Math.random()*256|0}px ${Math.random()*256|0}px`;
+  requestAnimationFrame(tick);
+}
+
+syncAll();update();requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
