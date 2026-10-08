@@ -519,7 +519,9 @@ const PRESETS=[
   ['Freeze the action',{mode:'speed',den:2000,fi:6,ii:9,nd:2,ev:12,focal:50}],
   ['Silky motion blur 360°',{angle:360,fi:15,ev:11.5}],
   ['Night street, dual-native',{fi:6,ii:15,nd:0,ev:2.5}],
-  ['BMD Micro Studio 4K G2',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,focal:25,sensor:18.96,ev:6.5,dual:true}],
+  ['Micro Studio 4K G2 · 25mm',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,sensor:18.96,ev:6.5,dual:true,focal:25}],
+  ['Micro Studio 4K G2 · 55mm',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,sensor:18.96,ev:6.5,dual:true,focal:55}],
+  ['Micro Studio 4K G2 · 120mm',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,sensor:18.96,ev:6.5,dual:true,focal:120}],
 ];
 PRESETS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
   b.onclick=()=>{Object.assign(S,DEFAULTS,p);if(p.mode==='speed')S.mode='speed';syncAll();update()};$('presets').appendChild(b)});
