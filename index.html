@@ -175,16 +175,17 @@ footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
         <div class="hint" id="typeHint"></div>
         <div class="row" style="margin-top:8px"><label for="fps">Frame rate</label>
           <select id="fps"><option>23.976</option><option selected>24</option><option>25</option><option>30</option><option>50</option><option>60</option><option>120</option></select></div>
-        <div class="hint" style="margin-top:6px">How long the sensor collects light per frame. Angle is the fraction of a spinning disc that's open; 180° at 24 fps = 1/48 s, the classic film look. Blackmagic cameras let you pick either.</div>
+        <div class="hint" style="margin-top:6px">How long the sensor collects light per frame. Angle is the fraction of each frame the sensor is exposed (on a film camera, the open part of a spinning disc); 180° at 24 fps = 1/48 s, the classic film look. Blackmagic cameras let you pick either.</div>
       </div>
 
       <div class="ctl">
         <div class="row"><span class="name">ISO</span><span class="val" id="isoVal"></span></div>
         <input type="range" id="isoSlider" min="0" max="24" step="1">
+        <div class="seg" id="classSeg"><button data-c="cinema">Cinema camera</button><button data-c="consumer">Consumer camera</button></div>
         <label class="check"><input type="checkbox" id="dual" checked> Dual native ISO (e.g. Pocket 4K: 400 &amp; 3200)</label>
         <div class="dr"><div id="drSh" class="sh"></div><div id="drHl" class="hl"></div></div>
         <div class="alt" id="drTxt" style="margin-top:4px"></div>
-        <div class="hint" style="margin-top:6px">Doesn't add light or noise by itself. It shifts where middle grey sits in the sensor's range: higher ISO = brighter picture and less highlight headroom. Noise comes from too little light on the sensor, which people often raise ISO to compensate for. Dual-native sensors have a second base ISO with lower read noise.</div>
+        <div class="hint" id="isoHint" style="margin-top:6px"></div>
       </div>
 
       <div class="ctl">
@@ -236,7 +237,7 @@ const $=id=>document.getElementById(id);
 const F_STOPS=[1.0,1.1,1.2,1.4,1.6,1.8,2,2.2,2.5,2.8,3.2,3.5,4,4.5,5,5.6,6.3,7.1,8,9,10,11,13,14,16,18,20,22];
 const ISOS=[100,125,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000,10000,12800,16000,20000,25600];
 const SPEEDS=[24,25,30,48,50,60,96,100,120,125,160,200,250,320,400,500,640,800,1000,1250,1600,2000,2500,3200,4000,5000,6400,8000];
-const DEFAULTS={shutType:'rotary',scene:'golden',fps:24,mode:'angle',angle:180,den:48,fi:9,ii:6,nd:4,focal:35,focus:3,ev:10.5,sensor:24.9,dual:true};
+const DEFAULTS={camClass:'cinema',shutType:'rotary',scene:'golden',fps:24,mode:'angle',angle:180,den:48,fi:9,ii:6,nd:4,focal:35,focus:3,ev:10.5,sensor:24.9,dual:true};
 const S=Object.assign({},DEFAULTS);
 let D_BG=80,D_CAR=6;const D_MID=3,D_FG=0.9,CAR_SPEED=1000,READOUT=.014;
 
@@ -643,6 +644,7 @@ $('ndSeg').onclick=e=>{const v=e.target.dataset.nd;if(v==null)return;S.nd=+v;upd
 $('focalSlider').oninput=e=>{S.focal=+e.target.value;update()};
 $('focusSlider').oninput=e=>{S.focus=posToDist(+e.target.value);update()};
 $('sensor').onchange=e=>{S.sensor=+e.target.value;update()};
+$('classSeg').onclick=e=>{const v=e.target.dataset.c;if(!v)return;S.camClass=v;update()};
 $('typeSeg').onclick=e=>{const v=e.target.dataset.t;if(!v)return;S.shutType=v;update()};
 $('sceneSeg').onclick=e=>{const v=e.target.dataset.sc;if(!v)return;S.scene=v;update()};
 $('evSlider').oninput=e=>{S.ev=+e.target.value;update()};
@@ -665,7 +667,7 @@ PRESETS.forEach(([n,p])=>{const b=document.createElement('button');b.className='
   b.onclick=()=>{S.focal=f;$('focalSlider').value=f;update()};$('lensChips').appendChild(b)});
 
 const CAMERAS=[
-  ['Blackmagic Micro Studio Camera 4K G2',{shutType:'rolling',sensor:18.96,fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,dual:true}],
+  ['Blackmagic Micro Studio Camera 4K G2',{camClass:'cinema',shutType:'rolling',sensor:18.96,fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,dual:true}],
 ];
 CAMERAS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
   b.onclick=()=>{Object.assign(S,p);syncAll();update()};$('camPresets').appendChild(b)});
@@ -709,18 +711,28 @@ function update(){
   // noise
   // Noise comes from light on the sensor (P, independent of ISO): photon shot noise
   // plus read noise, which is lower on a dual-native sensor's second base ISO.
-  const hiNative=S.dual&&iso>=3200;
-  const native=hiNative?3200:400,over=Math.max(1,iso/native);
+  const cin=S.camClass==='cinema';
+  const hiNative=cin&&S.dual&&iso>=3200;
+  const native=cin?(hiNative?3200:400):100,over=Math.max(1,iso/native);
   const P=log2(t/(N*N))+S.ev-S.nd;
   const g=(hiNative?.4:1)/Math.pow(over,.25);
   const shot=.03*Math.pow(2,-(P+2)/2),read=.004*Math.pow(2,-(P+2))*g;
   const sigma=Math.hypot(shot,read);
   $('grain').style.opacity=clamp(Math.max(0,sigma-.02)*5,0,.95).toFixed(3);
   const nLabel=sigma<.02?'negligible':sigma<.05?'low':sigma<.1?'moderate':sigma<.2?'heavy':'extreme';
-  // ISO moves middle grey: more ISO = less highlight headroom, more shadow range
-  const head=clamp(6.5-log2(iso/native),1,9),shadows=13-head;
-  $('drHl').style.width=(head/13*100)+'%';$('drSh').style.width=(shadows/13*100)+'%';
-  $('drTxt').textContent=`Middle grey sits ${shadows.toFixed(1)} stops above the shadow floor and ${head.toFixed(1)} stops below clipping.`;
+  // Dynamic range vs ISO. Cinema cameras mostly SHIFT the range (middle grey moves, total barely changes);
+  // consumer cameras mostly SHRINK it (highlights clip sooner, total range falls).
+  let head,total;
+  if(cin){const off=log2(iso/native);head=clamp(6.5-off,1,9);total=13-.3*Math.max(0,Math.abs(off)-2)}
+  else{const d=Math.max(0,log2(iso/100));head=Math.max(.5,5.5-.6*d);total=13-.5*d}
+  const shadows=total-head;
+  $('drHl').style.width=(head/14*100)+'%';$('drSh').style.width=(shadows/14*100)+'%';
+  $('drTxt').textContent=`${shadows.toFixed(1)} stops above the shadow floor + ${head.toFixed(1)} below clipping = ${total.toFixed(1)} stops total.`;
+  $('dual').disabled=!cin;
+  document.querySelectorAll('#classSeg button').forEach(x=>x.classList.toggle('on',x.dataset.c===S.camClass));
+  $('isoHint').textContent=cin
+    ?'Adds no light. On a cinema camera, ISO mostly shifts the range: middle grey moves up the scale, so higher ISO means a brighter picture, less highlight headroom and more shadow range, with the total staying about the same (a little shrinkage at the extremes). Noise comes from too little light on the sensor. Dual-native sensors have a second base ISO with lower read noise.'
+    :'Adds no light. On a consumer camera, higher ISO mostly shrinks the range: highlights clip sooner and the total dynamic range falls. Noise comes from too little light on the sensor, which people often raise ISO to compensate for.';
 
   // readouts
   $('fVal').textContent='f/'+Nn;$('fSlider').value=S.fi;
@@ -772,7 +784,7 @@ function update(){
   const why=[
     `<b>Aperture f/${Nn}:</b> the iris is ${(S.focal/N).toFixed(1)} mm wide. ${N<=2?'A wide-open iris lets rays arrive from a steep cone, so anything off the focus plane smears into big discs.':N>=8?'A small iris keeps rays nearly parallel, so most of the scene stays sharp. Past about f/11 diffraction starts softening everything.':'A middle aperture balances light and depth of field.'}`,
     `<b>Shutter ${fmtT(t)}:</b> ${lastCarPx>25?`the ${sc.obj} smears across about ${Math.round(lastCarPx)} px during the exposure.`:lastCarPx>4?`the ${sc.obj} blurs by about ${Math.round(lastCarPx)} px, a natural cinematic amount.`:'motion is nearly frozen.'}${Math.abs(ang-180)<2?' This is the classic 180° look.':''}`,
-    `<b>ISO ${iso}:</b> adds no light. It only moves middle grey, leaving ${head.toFixed(1)} stops of highlight headroom. Noise is <b>${nLabel}</b> because of how much light reaches the sensor (${stopsStr(P+2)} stops vs. a well-lit reference)${sigma>.05?'; high ISO is usually a symptom of that, not the cause':''}.${hiNative?' You’re on the second native ISO, which has lower read noise.':''}`,
+    `<b>ISO ${iso}:</b> adds no light. ${cin?`It mostly shifts the range, leaving ${head.toFixed(1)} stops of highlight headroom out of ${total.toFixed(1)}.`:`It shrinks the range: ${head.toFixed(1)} stops of highlight headroom and ${total.toFixed(1)} stops in total.`} Noise is <b>${nLabel}</b> because of how much light reaches the sensor (${stopsStr(P+2)} stops vs. a well-lit reference)${sigma>.05?'; high ISO is usually a symptom of that, not the cause':''}.${hiNative?' You’re on the second native ISO, which has lower read noise.':''}`,
     `<b>Focus ${fmtDist(S.focus)}:</b> sharp from ${fmtDist(near)} to ${fmtDist(far)}. Background blur disc ≈ ${Math.round(cBg)} px wide${cBg>6?', big enough to read as bokeh':''}.`,
     `<b>Net result:</b> ${Math.abs(E)<.25?'balanced exposure.':`${Math.abs(E).toFixed(1)} stops ${E>0?'too bright. Try a smaller aperture, faster shutter, lower ISO or more ND.':'too dark. Open up, slow the shutter, raise ISO or remove ND.'}`}`
   ];

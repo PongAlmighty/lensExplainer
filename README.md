@@ -19,7 +19,7 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 | Shutter | **angle** 11.2° – 360°, or **speed** 1/24 – 1/8000 (toggle between them) |
 | Shutter type | mechanical rotary disc, electronic rolling, or electronic global (rolling adds a lean to fast sideways motion) |
 | Frame rate | 23.976 – 120 fps |
-| ISO | 100 – 25600, with an optional dual-native ISO mode (400 / 3200) |
+| ISO | 100 – 25600. Cinema cameras mostly shift the dynamic range as ISO changes (with an optional dual-native mode, 400 / 3200); consumer cameras mostly shrink it |
 | ND filter | none, 2, 4, 6 stops |
 | Focal length | 18 – 135 mm |
 | Focus distance | 0.5 m – ∞ |
