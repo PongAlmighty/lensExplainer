@@ -25,7 +25,7 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 | Sensor | Super 35 or Micro Four Thirds |
 | Scene brightness | EV 1 – 16 |
 
-There are also presets (cinematic 24p, dreamy portrait, deep-focus landscape, freeze the action, motion blur, night street).
+There are also presets (cinematic 24p, dreamy portrait, deep-focus landscape, freeze the action, motion blur, night street, Blackmagic Micro Studio Camera 4K G2).
 
 ## About the model
 
