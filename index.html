@@ -193,6 +193,7 @@ footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
       <div class="ctl">
         <div class="row"><span class="name">Focal length</span><span class="val" id="focalVal"></span></div>
         <input type="range" id="focalSlider" min="18" max="135" step="1">
+        <div class="pills" id="lensChips"></div>
         <div class="hint">Wider = more in frame; longer = tighter and shallower depth of field.</div>
       </div>
       <div class="ctl">
@@ -519,12 +520,13 @@ const PRESETS=[
   ['Freeze the action',{mode:'speed',den:2000,fi:6,ii:9,nd:2,ev:12,focal:50}],
   ['Silky motion blur 360°',{angle:360,fi:15,ev:11.5}],
   ['Night street, dual-native',{fi:6,ii:15,nd:0,ev:2.5}],
-  ['Micro Studio 4K G2 · 25mm',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,sensor:18.96,ev:6.5,dual:true,focal:25}],
-  ['Micro Studio 4K G2 · 55mm',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,sensor:18.96,ev:6.5,dual:true,focal:55}],
-  ['Micro Studio 4K G2 · 120mm',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,sensor:18.96,ev:6.5,dual:true,focal:120}],
+  ['BMD Micro Studio 4K G2',{fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,focal:25,sensor:18.96,ev:6.5,dual:true}],
 ];
 PRESETS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
   b.onclick=()=>{Object.assign(S,DEFAULTS,p);if(p.mode==='speed')S.mode='speed';syncAll();update()};$('presets').appendChild(b)});
+
+[25,55,120].forEach(f=>{const b=document.createElement('button');b.className='pill';b.textContent=f+'mm lens';
+  b.onclick=()=>{S.focal=f;$('focalSlider').value=f;update()};$('lensChips').appendChild(b)});
 
 function syncAll(){
   $('fSlider').value=S.fi;$('isoSlider').value=S.ii;$('dual').checked=S.dual;
