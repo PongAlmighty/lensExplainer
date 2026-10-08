@@ -17,6 +17,7 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 | --- | --- |
 | Aperture | f/1.4 – f/22 in 1/3 stops |
 | Shutter | **angle** 11.2° – 360°, or **speed** 1/24 – 1/8000 (toggle between them) |
+| Shutter type | mechanical rotary disc, electronic rolling, or electronic global (rolling adds a lean to fast sideways motion) |
 | Frame rate | 23.976 – 120 fps |
 | ISO | 100 – 25600, with an optional dual-native ISO mode (400 / 3200) |
 | ND filter | none, 2, 4, 6 stops |
