@@ -26,7 +26,7 @@ Open `index.html` in any modern browser. No build step, no dependencies.
 | Scene | night, indoors, outdoors at golden hour, outdoors in daylight (independent of brightness) |
 | Scene brightness | EV 1 – 16 |
 
-There are also presets (cinematic 24p, dreamy portrait, deep-focus landscape, freeze the action, motion blur, night street, Blackmagic Micro Studio Camera 4K G2), plus 25, 55 and 120 mm lens buttons that change only the focal length.
+There are also presets (cinematic 24p, dreamy portrait, deep-focus landscape, freeze the action, motion blur, night street) and a camera row (Blackmagic Micro Studio Camera 4K G2) that only changes camera settings, plus 25, 55 and 120 mm lens buttons that change only the focal length.
 
 ## About the model
 

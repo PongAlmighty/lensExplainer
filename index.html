@@ -149,7 +149,10 @@ footer{color:var(--muted);font-size:12px;padding:0 20px 30px;max-width:900px}
   <aside class="col controls">
     <section class="card">
       <h2>Presets</h2>
+      <div class="hint">Situations (set the scene, light and camera settings)</div>
       <div class="pills" id="presets"></div>
+      <div class="hint" style="margin-top:12px">Cameras (only change camera settings: sensor, frame rate, shutter, aperture, ISO, ND)</div>
+      <div class="pills" id="camPresets"></div>
     </section>
 
     <section class="card">
@@ -628,13 +631,18 @@ const PRESETS=[
   ['Freeze the action',{scene:'daylight',mode:'speed',den:2000,fi:6,ii:9,nd:2,ev:12,focal:50}],
   ['Silky motion blur 360°',{scene:'daylight',angle:360,fi:15,ev:11.5}],
   ['Night street, dual-native',{scene:'night',fi:6,ii:15,nd:0,ev:2.5}],
-  ['BMD Micro Studio 4K G2',{scene:'indoor',fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,focal:25,sensor:18.96,ev:6.5,dual:true}],
 ];
 PRESETS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
   b.onclick=()=>{Object.assign(S,DEFAULTS,p);if(p.mode==='speed')S.mode='speed';syncAll();update()};$('presets').appendChild(b)});
 
 [25,55,120].forEach(f=>{const b=document.createElement('button');b.className='pill';b.textContent=f+'mm lens';
   b.onclick=()=>{S.focal=f;$('focalSlider').value=f;update()};$('lensChips').appendChild(b)});
+
+const CAMERAS=[
+  ['Blackmagic Micro Studio Camera 4K G2',{sensor:18.96,fps:25,mode:'speed',den:50,fi:9,ii:6,nd:0,dual:true}],
+];
+CAMERAS.forEach(([n,p])=>{const b=document.createElement('button');b.className='pill';b.textContent=n;
+  b.onclick=()=>{Object.assign(S,p);syncAll();update()};$('camPresets').appendChild(b)});
 
 function syncAll(){
   $('fSlider').value=S.fi;$('isoSlider').value=S.ii;$('dual').checked=S.dual;
